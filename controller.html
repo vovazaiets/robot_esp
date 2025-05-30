@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MQTT Car Control</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    button {
+      width: 120px;
+      height: 60px;
+      margin: 10px;
+      font-size: 20px;
+    }
+  </style>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <h2>🚗 Local MQTT Car Control (Buttons + WASD)</h2>
+
+  <div>
+    <button id="forward">⬆️ Forward (W)</button><br>
+    <button id="left">⬅️ Left (A)</button>
+    <button id="stop">⏹️ Stop (Space)</button>
+    <button id="right">➡️ Right (D)</button><br>
+    <button id="backward">⬇️ Backward (S)</button>
+  </div>
+
+  <script>
+    const broker = 'ws://192.168.137.177:9001';
+    const topic = 'car/control';
+    let interval = null;
+    let currentKey = null;
+
+    const client = mqtt.connect(broker);
+
+    client.on('connect', () => {
+      console.log('✅ Connected to MQTT broker');
+    });
+
+    client.on('error', (err) => {
+      console.error('❌ Connection error:', err);
+    });
+
+    function sendCommand(command) {
+      console.log(`📤 Sending command: ${command}`);
+      client.publish(topic, command);
+    }
+
+    function startSending(command) {
+      if (interval) clearInterval(interval);
+      sendCommand(command);
+      interval = setInterval(() => sendCommand(command), 500);
+    }
+
+    function stopSending() {
+      if (interval) clearInterval(interval);
+      sendCommand("stop");
+    }
+
+    function attachEvents(id, command) {
+      const btn = document.getElementById(id);
+      btn.addEventListener("mousedown", () => startSending(command));
+      btn.addEventListener("mouseup", stopSending);
+      btn.addEventListener("mouseleave", stopSending);
+      btn.addEventListener("touchstart", () => startSending(command));
+      btn.addEventListener("touchend", stopSending);
+    }
+
+    attachEvents("forward", "forward");
+    attachEvents("backward", "backward");
+    attachEvents("left", "left");
+    attachEvents("right", "right");
+    attachEvents("stop", "stop");
+
+    // 👇 WASD keyboard control
+    document.addEventListener("keydown", (e) => {
+      if (currentKey === e.code) return;
+      currentKey = e.code;
+      console.log("Key down:", e.code);
+
+      switch (e.code) {
+        case "KeyW": startSending("forward"); break;
+        case "KeyA": startSending("left"); break;
+        case "KeyS": startSending("backward"); break;
+        case "KeyD": startSending("right"); break;
+        case "Space": sendCommand("stop"); break;
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      console.log("Key up:", e.code);
+      currentKey = null;
+      stopSending();
+    });
+  </script>
+</body>
+</html>
